@@ -84,6 +84,7 @@ enum {
     RISCV_FEATURE_MMU,
     RISCV_FEATURE_PMP,
     RISCV_FEATURE_EPMP,
+    RISCV_FEATURE_VPMP,
     RISCV_FEATURE_MISA,
     RISCV_FEATURE_AIA,
     RISCV_FEATURE_DEBUG
@@ -102,17 +103,20 @@ enum {
     TRANSLATE_SUCCESS,
     TRANSLATE_FAIL,
     TRANSLATE_PMP_FAIL,
+    TRANSLATE_VMP_FAIL,
     TRANSLATE_G_STAGE_FAIL
 };
 
 #define MMU_USER_IDX 3
 
 #define MAX_RISCV_PMPS (16)
+#define MAX_RISCV_VMPS (16)
 
 typedef struct CPUArchState CPURISCVState;
 
 #if !defined(CONFIG_USER_ONLY)
 #include "pmp.h"
+#include "vmp.h"
 #include "debug.h"
 #endif
 
@@ -309,6 +313,9 @@ struct CPUArchState {
     pmp_table_t pmp_state;
     target_ulong mseccfg;
 
+    /* virtual memory protection */
+    vmp_table_t vmp_state;
+
     /* trigger module */
     target_ulong trigger_cur;
     type2_trigger_t type2_trig[TRIGGER_TYPE2_NUM];
@@ -452,6 +459,7 @@ struct RISCVCPUConfig {
     bool mmu;
     bool pmp;
     bool epmp;
+    bool vpmp; /*see if it should be moved to vendor-specific-extensions*/
     bool aia;
     bool debug;
     uint64_t resetvec;
