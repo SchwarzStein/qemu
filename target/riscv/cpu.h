@@ -315,6 +315,7 @@ struct CPUArchState {
 
     /* virtual memory protection */
     vmp_table_t vmp_state;
+    target_ulong mvseccfg;
 
     /* trigger module */
     target_ulong trigger_cur;

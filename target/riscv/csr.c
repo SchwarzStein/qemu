@@ -2882,7 +2882,69 @@ static RISCVException write_pmpaddr(CPURISCVState *env, int csrno,
     pmpaddr_csr_write(env, csrno - CSR_PMPADDR0, val);
     return RISCV_EXCP_NONE;
 }
+/*start vmp*/
+/*static RISCVException read_mvseccfg(CPURISCVState *env, int csrno,
+                                   target_ulong *val)
+{
+    *val = mvseccfg_csr_read(env);
+    return RISCV_EXCP_NONE;
+}
 
+static RISCVException write_mvseccfg(CPURISCVState *env, int csrno,
+                         target_ulong val)
+{
+    mvseccfg_csr_write(env, val);
+    return RISCV_EXCP_NONE;
+}
+*/
+static bool check_vmp_reg_index(CPURISCVState *env, uint32_t reg_index)
+{
+    /* TODO: RV128 restriction check */
+    if ((reg_index & 1) && (riscv_cpu_mxl(env) == MXL_RV64)) {
+        return false;
+    }
+    return true;
+}
+
+static RISCVException read_vmpcfg(CPURISCVState *env, int csrno,
+                                  target_ulong *val)
+{
+    uint32_t reg_index = csrno - CSR_VMPCFG0;
+
+    if (!check_vmp_reg_index(env, reg_index)) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+    *val = vmpcfg_csr_read(env, csrno - CSR_VMPCFG0);
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_vmpcfg(CPURISCVState *env, int csrno,
+                                   target_ulong val)
+{
+    uint32_t reg_index = csrno - CSR_VMPCFG0;
+
+    if (!check_vmp_reg_index(env, reg_index)) {
+        return RISCV_EXCP_ILLEGAL_INST;
+    }
+    vmpcfg_csr_write(env, csrno - CSR_VMPCFG0, val);
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException read_vmpaddr(CPURISCVState *env, int csrno,
+                                   target_ulong *val)
+{
+    *val = vmpaddr_csr_read(env, csrno - CSR_VMPADDR0);
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_vmpaddr(CPURISCVState *env, int csrno,
+                                    target_ulong val)
+{
+    vmpaddr_csr_write(env, csrno - CSR_VMPADDR0, val);
+    return RISCV_EXCP_NONE;
+}
+
+/*end vmp*/
 static RISCVException read_tselect(CPURISCVState *env, int csrno,
                                    target_ulong *val)
 {
@@ -3949,5 +4011,31 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
                                                        write_mhpmcounterh },
     [CSR_MHPMCOUNTER31H] = { "mhpmcounter31h", mctr32,  read_hpmcounterh,
                                                        write_mhpmcounterh },
+
+    /* Virtual Memory Protection */
+    /*[CSR_MSECCFG]    = { "mseccfg",  epmp, read_mseccfg, write_mseccfg,
+                                     .min_priv_ver = PRIV_VERSION_1_11_0 }, */
+    [CSR_VMPCFG0]    = { "vmpcfg0",   vmp, read_vmpcfg,  write_vmpcfg  },
+    [CSR_VMPCFG1]    = { "vmpcfg1",   vmp, read_vmpcfg,  write_vmpcfg  },
+    [CSR_VMPCFG2]    = { "vmpcfg2",   vmp, read_vmpcfg,  write_vmpcfg  },
+    [CSR_VMPCFG3]    = { "vmpcfg3",   vmp, read_vmpcfg,  write_vmpcfg  },
+    [CSR_VMPADDR0]   = { "vmpaddr0",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR1]   = { "vmpaddr1",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR2]   = { "vmpaddr2",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR3]   = { "vmpaddr3",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR4]   = { "vmpaddr4",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR5]   = { "vmpaddr5",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR6]   = { "vmpaddr6",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR7]   = { "vmpaddr7",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR8]   = { "vmpaddr8",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR9]   = { "vmpaddr9",  vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR10]  = { "vmpaddr10", vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR11]  = { "vmpaddr11", vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR12]  = { "vmpaddr12", vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR13]  = { "vmpaddr13", vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR14] =  { "vmpaddr14", vmp, read_vmpaddr, write_vmpaddr },
+    [CSR_VMPADDR15] =  { "vmpaddr15", vmp, read_vmpaddr, write_vmpaddr },
+
+
 #endif /* !CONFIG_USER_ONLY */
 };
