@@ -308,6 +308,33 @@
 #define CSR_PMPADDR14       0x3be
 #define CSR_PMPADDR15       0x3bf
 
+/* Enhanced Virtual Memory Protection (vPMP) 
+    #define CSR_MSECCFG         0x747
+    #define CSR_MSECCFGH        0x757
+*/
+
+/* Virtual Memory Protection */
+#define CSR_VMPCFG0         0xf20
+#define CSR_VMPCFG1         0xf21
+#define CSR_VMPCFG2         0xf22
+#define CSR_VMPCFG3         0xf23
+#define CSR_VMPADDR0        0xf20
+#define CSR_VMPADDR1        0xf21
+#define CSR_VMPADDR2        0xf22
+#define CSR_VMPADDR3        0xf23
+#define CSR_VMPADDR4        0xf24
+#define CSR_VMPADDR5        0xf25
+#define CSR_VMPADDR6        0xf26
+#define CSR_VMPADDR7        0xf27
+#define CSR_VMPADDR8        0xf28
+#define CSR_VMPADDR9        0xf29
+#define CSR_VMPADDR10       0xf2a
+#define CSR_VMPADDR11       0xf2b
+#define CSR_VMPADDR12       0xf2c
+#define CSR_VMPADDR13       0xf2d
+#define CSR_VMPADDR14       0xf2e
+#define CSR_VMPADDR15       0xf2f
+
 /* Debug/Trace Registers (shared with Debug Mode) */
 #define CSR_TSELECT         0x7a0
 #define CSR_TDATA1          0x7a1
