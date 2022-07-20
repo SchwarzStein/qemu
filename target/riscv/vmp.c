@@ -78,7 +78,6 @@ static inline uint8_t vmp_read_cfg(CPURISCVState *env, uint32_t vmp_index)
     return 0;
 }
 
-
 /*
  * Accessor to set the cfg reg for a specific VMP/HART
  * Bounds checks and relevant lock bit.
@@ -88,33 +87,8 @@ static void vmp_write_cfg(CPURISCVState *env, uint32_t vmp_index, uint8_t val)
     if (vmp_index < MAX_RISCV_VMPS) {
         bool locked = true;
 
-        if (riscv_feature(env, RISCV_FEATURE_EVMP)) { /*TODO: REMOVE THIS FEATURE*/
-            /* mseccfg.RLB is set */
-            if (MVSECCFG_RLB_ISSET(env)) {
-                locked = false;
-            }
-
-            /* mseccfg.MML is not set */
-            if (!MVSECCFG_MML_ISSET(env) && !vmp_is_locked(env, vmp_index)) {
-                locked = false;
-            }
-
-            /* mseccfg.MML is set */
-            if (MVSECCFG_MML_ISSET(env)) {
-                /* not adding execute bit */
-                if ((val & VMP_LOCK) != 0 && (val & VMP_EXEC) != VMP_EXEC) {
-                    locked = false;
-                }
-                /* shared region and not adding X bit */
-                if ((val & VMP_LOCK) != VMP_LOCK &&
-                    (val & 0x7) != (VMP_WRITE | VMP_EXEC)) {
-                    locked = false;
-                }
-            }
-        } else {
-            if (!vmp_is_locked(env, vmp_index)) {
-                locked = false;
-            }
+        if (!vmp_is_locked(env, vmp_index)) {
+            locked = false;
         }
 
         if (locked) {
@@ -232,56 +206,17 @@ static int vmp_is_in_range(CPURISCVState *env, int vmp_index, target_ulong addr)
 
 /*
  * Check if the address has required RWX privs when no VMP entry is matched.
+ * when no vmp feature is available or no matching rules, we should allow
+ * all permissions to the given virtual address, with access control left
+ * to the default page table checks.
  */
 static bool vmp_hart_has_privs_default(CPURISCVState *env, target_ulong addr,
     target_ulong size, vmp_priv_t privs, vmp_priv_t *allowed_privs,
     target_ulong mode)
 {
     bool ret;
-
-    if (riscv_feature(env, RISCV_FEATURE_EPMP)) { /*TODO: remove this feature*/
-        if (MVSECCFG_MMWP_ISSET(env)) {
-            /*
-             * The Machine Mode Whitelist Policy (mseccfg.MMWP) is set
-             * so we default to deny all, even for M-mode.
-             */
-            *allowed_privs = 0;
-            return false;
-        } else if (MVSECCFG_MML_ISSET(env)) {
-            /*
-             * The Machine Mode Lockdown (mseccfg.MML) bit is set
-             * so we can only execute code in M-mode with an applicable
-             * rule. Other modes are disabled.
-             */
-            if (mode == PRV_M && !(privs & VMP_EXEC)) {
-                ret = true;
-                *allowed_privs = VMP_READ | VMP_WRITE;
-            } else {
-                ret = false;
-                *allowed_privs = 0;
-            }
-
-            return ret;
-        }
-    }
-
-    if ((!riscv_feature(env, RISCV_FEATURE_VMP)) || (mode == PRV_M)) {
-        /*
-         * Privileged spec v1.10 states if HW doesn't implement any VMP entry
-         * or no VMP entry matches an M-Mode access, the access succeeds.
-         */
-        ret = true;
-        *allowed_privs = VMP_READ | VMP_WRITE | VMP_EXEC;
-    } else {
-        /*
-         * Other modes are not allowed to succeed if they don't * match a rule,
-         * but there are rules. We've checked for no rule earlier in this
-         * function.
-         */
-        ret = false;
-        *allowed_privs = 0;
-    }
-
+    ret = true;
+    *allowed_privs = VMP_READ | VMP_WRITE | VMP_EXEC;
     return ret;
 }
 
@@ -299,7 +234,7 @@ bool vmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
 {
     int i = 0;
     int ret = -1;
-    int vmp_size = 0;
+    int pmp_size = 0;
     target_ulong s = 0;
     target_ulong e = 0;
 
@@ -327,12 +262,12 @@ bool vmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
          from low to high */
     for (i = 0; i < MAX_RISCV_VMPS; i++) {
         s = vmp_is_in_range(env, i, addr);
-        e = vmp_is_in_range(env, i, addr + vmp_size - 1);
+        e = vmp_is_in_range(env, i, addr + pmp_size - 1);
 
         /* partially inside */
         if ((s + e) == 1) {
             qemu_log_mask(LOG_GUEST_ERROR,
-                          "vmp violation - access is partially inside\n");
+                          "pmp violation - access is partially inside\n");
             ret = 0;
             break;
         }
@@ -342,98 +277,13 @@ bool vmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
             vmp_get_a_field(env->vmp_state.vmp[i].cfg_reg);
 
         /*
-         * Convert the VMP permissions to match the truth table in the
-         * eVMP spec.
+         * If the PMP entry is not off and the address is in range, do the priv
+         * check
          */
-        const uint8_t evmp_operation = /*TODO: Remove this feature*/
-            ((env->vmp_state.vmp[i].cfg_reg & VMP_LOCK) >> 4) |
-            ((env->vmp_state.vmp[i].cfg_reg & VMP_READ) << 2) |
-            (env->vmp_state.vmp[i].cfg_reg & VMP_WRITE) |
-            ((env->vmp_state.vmp[i].cfg_reg & VMP_EXEC) >> 2);
-
         if (((s + e) == 2) && (VMP_AMATCH_OFF != a_field)) {
-            /*
-             * If the VMP entry is not off and the address is in range,
-             * do the priv check
-             */
-            if (!MVSECCFG_MML_ISSET(env)) {
-                /*
-                 * If mseccfg.MML Bit is not set, do vmp priv check
-                 * This will always apply to regular VMP.
-                 */
-                *allowed_privs = VMP_READ | VMP_WRITE | VMP_EXEC;
-                if ((mode != PRV_M) || vmp_is_locked(env, i)) {
-                    *allowed_privs &= env->vmp_state.vmp[i].cfg_reg;
-                }
-            } else {
-                /*
-                 * If mseccfg.MML Bit set, do the enhanced vmp priv check
-                 */
-                if (mode == PRV_M) {
-                    switch (evmp_operation) {
-                    case 0:
-                    case 1:
-                    case 4:
-                    case 5:
-                    case 6:
-                    case 7:
-                    case 8:
-                        *allowed_privs = 0;
-                        break;
-                    case 2:
-                    case 3:
-                    case 14:
-                        *allowed_privs = VMP_READ | VMP_WRITE;
-                        break;
-                    case 9:
-                    case 10:
-                        *allowed_privs = VMP_EXEC;
-                        break;
-                    case 11:
-                    case 13:
-                        *allowed_privs = VMP_READ | VMP_EXEC;
-                        break;
-                    case 12:
-                    case 15:
-                        *allowed_privs = VMP_READ;
-                        break;
-                    default:
-                        g_assert_not_reached();
-                    }
-                } else {
-                    switch (evmp_operation) {
-                    case 0:
-                    case 8:
-                    case 9:
-                    case 12:
-                    case 13:
-                    case 14:
-                        *allowed_privs = 0;
-                        break;
-                    case 1:
-                    case 10:
-                    case 11:
-                        *allowed_privs = VMP_EXEC;
-                        break;
-                    case 2:
-                    case 4:
-                    case 15:
-                        *allowed_privs = VMP_READ;
-                        break;
-                    case 3:
-                    case 6:
-                        *allowed_privs = VMP_READ | VMP_WRITE;
-                        break;
-                    case 5:
-                        *allowed_privs = VMP_READ | VMP_EXEC;
-                        break;
-                    case 7:
-                        *allowed_privs = VMP_READ | VMP_WRITE | VMP_EXEC;
-                        break;
-                    default:
-                        g_assert_not_reached();
-                    }
-                }
+            *allowed_privs = VMP_READ | VMP_WRITE | VMP_EXEC;
+            if ((mode != PRV_M) || vmp_is_locked(env, i)) {
+                *allowed_privs &= env->vmp_state.vmp[i].cfg_reg;
             }
 
             ret = ((privs & *allowed_privs) == privs);
@@ -470,7 +320,6 @@ void vmpcfg_csr_write(CPURISCVState *env, uint32_t reg_index,
     /* If VMP permission of any addr has been changed, flush TLB pages. */
     tlb_flush(env_cpu(env)); /*TODO: Confirm this feature*/
 }
-
 
 /*
  * Handle a read from a vmpcfg CSR
@@ -548,39 +397,6 @@ target_ulong vmpaddr_csr_read(CPURISCVState *env, uint32_t addr_index)
     return val;
 }
 
-/*
- * Handle a write to a mseccfg CSR
- */
-void mseccfg_csr_write(CPURISCVState *env, target_ulong val)
-{
-    int i;
-
-    trace_mseccfg_csr_write(env->mhartid, val);
-
-    /* RLB cannot be enabled if it's already 0 and if any regions are locked */
-    if (!MVSECCFG_RLB_ISSET(env)) {
-        for (i = 0; i < MAX_RISCV_VMPS; i++) {
-            if (vmp_is_locked(env, i)) {
-                val &= ~MVSECCFG_RLB;
-                break;
-            }
-        }
-    }
-
-    /* Sticky bits */
-    val |= (env->mseccfg & (MVSECCFG_MMWP | MVSECCFG_MML));
-
-    env->mseccfg = val;
-}
-
-/*
- * Handle a read from a mseccfg CSR
- */
-target_ulong mseccfg_csr_read(CPURISCVState *env)
-{
-    trace_mseccfg_csr_read(env->mhartid, env->mseccfg);
-    return env->mseccfg;
-}
 
 /*
  * Calculate the TLB size if the start address or the end address of
