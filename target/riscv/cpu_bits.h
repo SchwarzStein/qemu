@@ -308,11 +308,6 @@
 #define CSR_PMPADDR14       0x3be
 #define CSR_PMPADDR15       0x3bf
 
-/* Enhanced Virtual Memory Protection (vPMP) 
-    #define CSR_MSECCFG         0x747
-    #define CSR_MSECCFGH        0x757
-*/
-
 /* Virtual Memory Protection */
 #define CSR_VMPCFG0         0xf20
 #define CSR_VMPCFG1         0xf21
