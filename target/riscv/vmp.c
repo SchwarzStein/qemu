@@ -220,6 +220,73 @@ static bool vmp_hart_has_privs_default(CPURISCVState *env, target_ulong addr,
     return ret;
 }
 
+/*
+ *  check if vmp permissions deny access to this address.
+ *  when all permissions are denied to this address, then there is no
+ *  need to do further checks.
+ */
+
+static bool  vmp_hart_zero_access(CPURISCVState *env, target_ulong addr,
+    target_ulong size)
+{
+    int i = 0;
+    int ret = 0;
+    int vmp_size = 0;
+    target_ulong s = 0;
+    target_ulong e = 0;
+    vmp_priv_t privs = VMP_READ|VMP_WRITE|VMP_EXEC;
+
+    if ( !riscv_feature(env, RISCV_FEATURE_MMU) ) {
+        return false;
+    }
+
+    if (0 == vmp_get_num_rules(env)) {
+        return false;
+    }
+    
+    if (size == 0) {
+        if (riscv_feature(env, RISCV_FEATURE_MMU)) {
+            /*
+             * If size is unknown (0), assume that all bytes
+             * from addr to the end of the page will be accessed.
+             */
+            vmp_size = -(addr | TARGET_PAGE_MASK);
+        } else {
+            vmp_size = sizeof(target_ulong);
+        }
+    } else {
+        vmp_size = size;
+    }
+
+    /* 1.10 draft priv spec states there is an implicit order
+         from low to high */
+    for (i = 0; i < MAX_RISCV_VMPS; i++) {
+        s = vmp_is_in_range(env, i, addr);
+        e = vmp_is_in_range(env, i, addr + vmp_size - 1);
+
+        /* partially inside */
+        if ((s + e) == 1) {
+            qemu_log_mask(LOG_GUEST_ERROR,
+                          "vmp violation - access is partially inside\n");
+            ret = 0;
+            break;
+        }
+
+        /* fully inside */
+        const uint8_t a_field =
+            vmp_get_a_field(env->vmp_state.vmp[i].cfg_reg);
+
+        /*
+         * If the VMP entry is not off and the address is in range, do the priv
+         * check
+         */
+        if (((s + e) == 2) && (VMP_AMATCH_OFF != a_field)) {
+            ret = ( (allowed_privs & env->vmp_state.vmp[i].cfg_reg) == 0) ? 1: 0;
+            break;
+        }
+    }
+    return ret == 1 ? true : false;
+}
 
 /*
  * Public Interface
@@ -234,7 +301,7 @@ bool vmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
 {
     int i = 0;
     int ret = -1;
-    int pmp_size = 0;
+    int vmp_size = 0;
     target_ulong s = 0;
     target_ulong e = 0;
 
@@ -262,7 +329,7 @@ bool vmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
          from low to high */
     for (i = 0; i < MAX_RISCV_VMPS; i++) {
         s = vmp_is_in_range(env, i, addr);
-        e = vmp_is_in_range(env, i, addr + pmp_size - 1);
+        e = vmp_is_in_range(env, i, addr + vmp_size - 1);
 
         /* partially inside */
         if ((s + e) == 1) {
@@ -277,7 +344,7 @@ bool vmp_hart_has_privs(CPURISCVState *env, target_ulong addr,
             vmp_get_a_field(env->vmp_state.vmp[i].cfg_reg);
 
         /*
-         * If the PMP entry is not off and the address is in range, do the priv
+         * If the VMP entry is not off and the address is in range, do the priv
          * check
          */
         if (((s + e) == 2) && (VMP_AMATCH_OFF != a_field)) {

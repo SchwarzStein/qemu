@@ -37,14 +37,6 @@ typedef enum {
     VMP_AMATCH_NAPOT /* Naturally aligned power-of-two region */
 } vmp_am_t;
 
-typedef enum {
-    MVSECCFG_MML   = 1 << 0,
-    MVSECCFG_MMWP  = 1 << 1,
-    MVSECCFG_RLB   = 1 << 2,
-    MVSECCFG_USEED = 1 << 8,
-    MVSECCFG_SSEED = 1 << 9
-} mseccfg_field_t;
-
 typedef struct {
     target_ulong addr_reg;
     uint8_t  cfg_reg;
@@ -80,9 +72,5 @@ void vmp_update_rule_addr(CPURISCVState *env, uint32_t vmp_index);
 void vmp_update_rule_nums(CPURISCVState *env);
 uint32_t vmp_get_num_rules(CPURISCVState *env);
 int vmp_priv_to_page_prot(vmp_priv_t vmp_priv);
-
-#define MVSECCFG_MML_ISSET(env) get_field(env->mvseccfg, MVSECCFG_MML)
-#define MVSECCFG_MMWP_ISSET(env) get_field(env->mvseccfg, MVSECCFG_MMWP)
-#define MVSECCFG_RLB_ISSET(env) get_field(env->mvseccfg, MVSECCFG_RLB)
 
 #endif

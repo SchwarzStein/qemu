@@ -676,6 +676,41 @@ void riscv_cpu_set_mode(CPURISCVState *env, target_ulong newpriv)
 }
 
 /*
+ * validate_virtual_address_vmp - check VMP permission for this virtual address
+ *
+ * Match the VMP region and check permission for this virtual address.
+ * Returns 0 if the permission checking was successful
+ *
+ * @env: CPURISCVState
+ * @vmp_prot: The returned vmp protection attributes
+ * @vaddr: The virtual address to be checked permission
+ * @access_type: The type of MMU access
+ * @mode: Indicates current privilege level.
+ */
+static int validate_virtual_address_vmp( CPURISCVState *env, int *vmp_prot,
+                                            /*target_ulong *tlb_size,*/ target_ulong vaddr,
+                                            int size, MMUAccesstype access_type,
+                                            int mode)
+{
+    vmp_priv_t vmp_priv;
+    target_ulong tlb_size_vmp;
+
+    if (!riscv_feature(env, RISCV_FEATURE_VMP)) {
+        *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+        return TRANSLATE_SUCCESS;
+    }
+
+    if (!vmp_hart_has_privs(env, vaddr, size, 1 << access_type, &vmp_priv,
+                            mode)) {
+        *vmp_prot = 0;
+        return TRANSLATE_VMP_FAIL;
+    }
+
+    *vmp_prot = vmp_priv_to_page_prot(vmp_priv);
+
+    return TRANSLATE_SUCCESS;
+}
+/*
  * get_physical_address_pmp - check PMP permission for this physical address
  *
  * Match the PMP region and check permission for this physical address and it's
@@ -1053,7 +1088,8 @@ restart:
 
 static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
                                 MMUAccessType access_type, bool pmp_violation,
-                                bool first_stage, bool two_stage)
+                                bool vmp_violation, bool first_stage,
+                                bool two_stage)
 {
     CPUState *cs = env_cpu(env);
     int page_fault_exceptions, vm;
@@ -1071,7 +1107,7 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
         vm = get_field(env->hgatp, stap_mode);
     }
 
-    page_fault_exceptions = vm != VM_1_10_MBARE && !pmp_violation;
+    page_fault_exceptions = vm != VM_1_10_MBARE && !pmp_violation && !vmp_violation;
 
     switch (access_type) {
     case MMU_INST_FETCH:
@@ -1186,6 +1222,7 @@ bool riscv_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
     hwaddr pa = 0;
     int prot, prot2, prot_pmp;
     bool pmp_violation = false;
+    bool vmp_violation = false;
     bool first_stage_error = true;
     bool two_stage_lookup = false;
     int ret = TRANSLATE_FAIL;
@@ -1273,29 +1310,37 @@ bool riscv_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
         }
     } else {
         /* Single stage lookup */
-        ret = get_physical_address(env, &pa, &prot, address, NULL,
-                                   access_type, mmu_idx, true, false, false);
-
-        qemu_log_mask(CPU_LOG_MMU,
-                      "%s address=%" VADDR_PRIx " ret %d physical "
-                      TARGET_FMT_plx " prot %d\n",
-                      __func__, address, ret, pa, prot);
-
+        int vmp_prot = 0;
+        ret = validate_virtual_address_vmp(env, &vmp_prot, address, size,
+                                            access_type, mode);
         if (ret == TRANSLATE_SUCCESS) {
-            ret = get_physical_address_pmp(env, &prot_pmp, &tlb_size, pa,
-                                           size, access_type, mode);
+
+            ret = get_physical_address(env, &pa, &prot, address, NULL,
+                                       access_type, mmu_idx, true, false, false);
 
             qemu_log_mask(CPU_LOG_MMU,
-                          "%s PMP address=" TARGET_FMT_plx " ret %d prot"
-                          " %d tlb_size " TARGET_FMT_lu "\n",
-                          __func__, pa, ret, prot_pmp, tlb_size);
+                          "%s address=%" VADDR_PRIx " ret %d physical "
+                          TARGET_FMT_plx " prot %d\n",
+                          __func__, address, ret, pa, prot);
 
-            prot &= prot_pmp;
-        }
+            if (ret == TRANSLATE_SUCCESS) {
+                ret = get_physical_address_pmp(env, &prot_pmp, &tlb_size, pa,
+                                               size, access_type, mode);
+
+                qemu_log_mask(CPU_LOG_MMU,
+                              "%s PMP address=" TARGET_FMT_plx " ret %d prot"
+                              " %d tlb_size " TARGET_FMT_lu "\n",
+                              __func__, pa, ret, prot_pmp, tlb_size);
+
+                prot &= prot_pmp;
+            }
+        } 
     }
 
     if (ret == TRANSLATE_PMP_FAIL) {
         pmp_violation = true;
+    } else if (ret == TRANSLATE_VMP_FAIL) {
+        vmp_violation = true;
     }
 
     if (ret == TRANSLATE_SUCCESS) {
