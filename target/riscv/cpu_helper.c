@@ -1115,7 +1115,8 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
             cs->exception_index = RISCV_EXCP_INST_GUEST_PAGE_FAULT;
         } else {
             cs->exception_index = page_fault_exceptions ?
-                RISCV_EXCP_INST_PAGE_FAULT : RISCV_EXCP_INST_ACCESS_FAULT;
+                RISCV_EXCP_INST_PAGE_FAULT : (vmp_violation ?
+                RISCV_EXCP_VMP_INST_ACCESS_FAULT: RISCV_EXCP_INST_ACCESS_FAULT);
         }
         break;
     case MMU_DATA_LOAD:
@@ -1123,7 +1124,8 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
             cs->exception_index = RISCV_EXCP_LOAD_GUEST_ACCESS_FAULT;
         } else {
             cs->exception_index = page_fault_exceptions ?
-                RISCV_EXCP_LOAD_PAGE_FAULT : RISCV_EXCP_LOAD_ACCESS_FAULT;
+                RISCV_EXCP_LOAD_PAGE_FAULT : (vmp_violation ?
+                RISCV_EXCP_VMP_LOAD_ACCESS_FAULT: RISCV_EXCP_LOAD_ACCESS_FAULT);
         }
         break;
     case MMU_DATA_STORE:
@@ -1131,7 +1133,8 @@ static void raise_mmu_exception(CPURISCVState *env, target_ulong address,
             cs->exception_index = RISCV_EXCP_STORE_GUEST_AMO_ACCESS_FAULT;
         } else {
             cs->exception_index = page_fault_exceptions ?
-                RISCV_EXCP_STORE_PAGE_FAULT : RISCV_EXCP_STORE_AMO_ACCESS_FAULT;
+                RISCV_EXCP_STORE_PAGE_FAULT : (vmp_violation ?
+                RISCV_EXCP_VMP_STORE_AMO_ACCESS_FAULT : RISCV_EXCP_STORE_AMO_ACCESS_FAULT);
         }
         break;
     default:
