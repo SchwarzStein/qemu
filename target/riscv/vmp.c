@@ -226,68 +226,68 @@ static bool vmp_hart_has_privs_default(CPURISCVState *env, target_ulong addr,
  *  need to do further checks.
  */
 
-static bool  vmp_hart_zero_access(CPURISCVState *env, target_ulong addr,
-    target_ulong size)
-{
-    int i = 0;
-    int ret = 0;
-    int vmp_size = 0;
-    target_ulong s = 0;
-    target_ulong e = 0;
-    vmp_priv_t privs = VMP_READ|VMP_WRITE|VMP_EXEC;
-
-    if ( !riscv_feature(env, RISCV_FEATURE_MMU) ) {
-        return false;
-    }
-
-    if (0 == vmp_get_num_rules(env)) {
-        return false;
-    }
-    
-    if (size == 0) {
-        if (riscv_feature(env, RISCV_FEATURE_MMU)) {
-            /*
-             * If size is unknown (0), assume that all bytes
-             * from addr to the end of the page will be accessed.
-             */
-            vmp_size = -(addr | TARGET_PAGE_MASK);
-        } else {
-            vmp_size = sizeof(target_ulong);
-        }
-    } else {
-        vmp_size = size;
-    }
-
-    /* 1.10 draft priv spec states there is an implicit order
-         from low to high */
-    for (i = 0; i < MAX_RISCV_VMPS; i++) {
-        s = vmp_is_in_range(env, i, addr);
-        e = vmp_is_in_range(env, i, addr + vmp_size - 1);
-
-        /* partially inside */
-        if ((s + e) == 1) {
-            qemu_log_mask(LOG_GUEST_ERROR,
-                          "vmp violation - access is partially inside\n");
-            ret = 0;
-            break;
-        }
-
-        /* fully inside */
-        const uint8_t a_field =
-            vmp_get_a_field(env->vmp_state.vmp[i].cfg_reg);
-
-        /*
-         * If the VMP entry is not off and the address is in range, do the priv
-         * check
-         */
-        if (((s + e) == 2) && (VMP_AMATCH_OFF != a_field)) {
-            ret = ( (allowed_privs & env->vmp_state.vmp[i].cfg_reg) == 0) ? 1: 0;
-            break;
-        }
-    }
-    return ret == 1 ? true : false;
-}
-
+//static bool  vmp_hart_zero_access(CPURISCVState *env, target_ulong addr,
+//    target_ulong size)
+//{
+//    int i = 0;
+//    int ret = 0;
+//    int vmp_size = 0;
+//    target_ulong s = 0;
+//    target_ulong e = 0;
+//    vmp_priv_t privs = VMP_READ|VMP_WRITE|VMP_EXEC;
+//
+//    if ( !riscv_feature(env, RISCV_FEATURE_MMU) ) {
+//        return false;
+//    }
+//
+//    if (0 == vmp_get_num_rules(env)) {
+//        return false;
+//    }
+//    
+//    if (size == 0) {
+//        if (riscv_feature(env, RISCV_FEATURE_MMU)) {
+//            /*
+//             * If size is unknown (0), assume that all bytes
+//             * from addr to the end of the page will be accessed.
+//             */
+//            vmp_size = -(addr | TARGET_PAGE_MASK);
+//        } else {
+//            vmp_size = sizeof(target_ulong);
+//        }
+//    } else {
+//        vmp_size = size;
+//    }
+//
+//    /* 1.10 draft priv spec states there is an implicit order
+//         from low to high */
+//    for (i = 0; i < MAX_RISCV_VMPS; i++) {
+//        s = vmp_is_in_range(env, i, addr);
+//        e = vmp_is_in_range(env, i, addr + vmp_size - 1);
+//
+//        /* partially inside */
+//        if ((s + e) == 1) {
+//            qemu_log_mask(LOG_GUEST_ERROR,
+//                          "vmp violation - access is partially inside\n");
+//            ret = 0;
+//            break;
+//        }
+//
+//        /* fully inside */
+//        const uint8_t a_field =
+//            vmp_get_a_field(env->vmp_state.vmp[i].cfg_reg);
+//
+//        /*
+//         * If the VMP entry is not off and the address is in range, do the priv
+//         * check
+//         */
+//        if (((s + e) == 2) && (VMP_AMATCH_OFF != a_field)) {
+//            ret = ( (privs & env->vmp_state.vmp[i].cfg_reg) == 0) ? 1: 0;
+//            break;
+//        }
+//    }
+//    return ret == 1 ? true : false;
+//}
+//
 /*
  * Public Interface
  */
@@ -377,7 +377,7 @@ void vmpcfg_csr_write(CPURISCVState *env, uint32_t reg_index,
     uint8_t cfg_val;
     int vmpcfg_nums = 2 << riscv_cpu_mxl(env);
 
-    trace_vmpcfg_csr_write(env->mhartid, reg_index, val);
+    //trace_vmpcfg_csr_write(env->mhartid, reg_index, val);
 
     for (i = 0; i < vmpcfg_nums; i++) {
         cfg_val = (val >> 8 * i)  & 0xff;
@@ -402,7 +402,7 @@ target_ulong vmpcfg_csr_read(CPURISCVState *env, uint32_t reg_index)
         val = vmp_read_cfg(env, (reg_index * 4) + i);
         cfg_val |= (val << (i * 8));
     }
-    trace_vmpcfg_csr_read(env->mhartid, reg_index, cfg_val);
+    //trace_vmpcfg_csr_read(env->mhartid, reg_index, cfg_val);
 
     return cfg_val;
 }
@@ -414,7 +414,7 @@ target_ulong vmpcfg_csr_read(CPURISCVState *env, uint32_t reg_index)
 void vmpaddr_csr_write(CPURISCVState *env, uint32_t addr_index,
     target_ulong val)
 {
-    trace_vmpaddr_csr_write(env->mhartid, addr_index, val);
+    //trace_vmpaddr_csr_write(env->mhartid, addr_index, val);
 
     if (addr_index < MAX_RISCV_VMPS) {
         /*
@@ -455,7 +455,7 @@ target_ulong vmpaddr_csr_read(CPURISCVState *env, uint32_t addr_index)
 
     if (addr_index < MAX_RISCV_VMPS) {
         val = env->vmp_state.vmp[addr_index].addr_reg;
-        trace_vmpaddr_csr_read(env->mhartid, addr_index, val);
+        //trace_vmpaddr_csr_read(env->mhartid, addr_index, val);
     } else {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "ignoring vmpaddr read - out of bounds\n");

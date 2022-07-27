@@ -688,15 +688,13 @@ void riscv_cpu_set_mode(CPURISCVState *env, target_ulong newpriv)
  * @mode: Indicates current privilege level.
  */
 static int validate_virtual_address_vmp( CPURISCVState *env, int *vmp_prot,
-                                            /*target_ulong *tlb_size,*/ target_ulong vaddr,
-                                            int size, MMUAccesstype access_type,
-                                            int mode)
+                                          target_ulong vaddr, int size,
+                                          MMUAccessType access_type, int mode)
 {
     vmp_priv_t vmp_priv;
-    target_ulong tlb_size_vmp;
 
     if (!riscv_feature(env, RISCV_FEATURE_VMP)) {
-        *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+        *vmp_prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
         return TRANSLATE_SUCCESS;
     }
 
@@ -1354,7 +1352,7 @@ bool riscv_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
         return false;
     } else {
         raise_mmu_exception(env, address, access_type, pmp_violation,
-                            first_stage_error,
+                            vmp_violation, first_stage_error,
                             riscv_cpu_virt_enabled(env) ||
                                 riscv_cpu_two_stage_lookup(mmu_idx));
         cpu_loop_exit_restore(cs, retaddr);
@@ -1413,6 +1411,9 @@ void riscv_cpu_do_interrupt(CPUState *cs)
         case RISCV_EXCP_INST_PAGE_FAULT:
         case RISCV_EXCP_LOAD_PAGE_FAULT:
         case RISCV_EXCP_STORE_PAGE_FAULT:
+        case RISCV_EXCP_VMP_INST_ACCESS_FAULT:
+        case RISCV_EXCP_VMP_LOAD_ACCESS_FAULT:
+        case RISCV_EXCP_VMP_STORE_AMO_ACCESS_FAULT:
             write_gva = env->two_stage_lookup;
             tval = env->badaddr;
             break;

@@ -1491,22 +1491,22 @@ static const char *csr_name(int csrno)
     case 0x0f13: return "mimpid";
     case 0x0f14: return "mhartid";
     case 0x0f20: return "vmpcfg3";
-    case 0x0f20: return "vmpaddr0";
-    case 0x0f21: return "vmpaddr1";
-    case 0x0f22: return "vmpaddr2";
-    case 0x0f23: return "vmpaddr3";
-    case 0x0f24: return "vmpaddr4";
-    case 0x0f25: return "vmpaddr5";
-    case 0x0f26: return "vmpaddr6";
-    case 0x0f27: return "vmpaddr7";
-    case 0x0f28: return "vmpaddr8";
-    case 0x0f29: return "vmpaddr9";
-    case 0x0f2a: return "vmpaddr10";
-    case 0x0f2b: return "vmpaddr11";
-    case 0x0f2c: return "vmpaddr12";
-    case 0x0f2d: return "vmpaddr14";
-    case 0x0f2e: return "vmpaddr13";
-    case 0x0f2f: return "vmpaddr15";
+    case 0x0f30: return "vmpaddr0";
+    case 0x0f31: return "vmpaddr1";
+    case 0x0f32: return "vmpaddr2";
+    case 0x0f33: return "vmpaddr3";
+    case 0x0f34: return "vmpaddr4";
+    case 0x0f35: return "vmpaddr5";
+    case 0x0f36: return "vmpaddr6";
+    case 0x0f37: return "vmpaddr7";
+    case 0x0f38: return "vmpaddr8";
+    case 0x0f39: return "vmpaddr9";
+    case 0x0f3a: return "vmpaddr10";
+    case 0x0f3b: return "vmpaddr11";
+    case 0x0f3c: return "vmpaddr12";
+    case 0x0f3d: return "vmpaddr14";
+    case 0x0f3e: return "vmpaddr13";
+    case 0x0f3f: return "vmpaddr15";
 
     default: return NULL;
     }

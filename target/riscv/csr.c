@@ -385,6 +385,15 @@ static RISCVException epmp(CPURISCVState *env, int csrno)
     return RISCV_EXCP_ILLEGAL_INST;
 }
 
+static RISCVException vmp(CPURISCVState *env, int csrno)
+{
+    if (riscv_feature(env, RISCV_FEATURE_VMP)) {
+        return RISCV_EXCP_NONE;
+    }
+
+    return RISCV_EXCP_ILLEGAL_INST;
+}
+
 static RISCVException debug(CPURISCVState *env, int csrno)
 {
     if (riscv_feature(env, RISCV_FEATURE_DEBUG)) {
@@ -2882,21 +2891,7 @@ static RISCVException write_pmpaddr(CPURISCVState *env, int csrno,
     pmpaddr_csr_write(env, csrno - CSR_PMPADDR0, val);
     return RISCV_EXCP_NONE;
 }
-/*start vmp*/
-/*static RISCVException read_mvseccfg(CPURISCVState *env, int csrno,
-                                   target_ulong *val)
-{
-    *val = mvseccfg_csr_read(env);
-    return RISCV_EXCP_NONE;
-}
 
-static RISCVException write_mvseccfg(CPURISCVState *env, int csrno,
-                         target_ulong val)
-{
-    mvseccfg_csr_write(env, val);
-    return RISCV_EXCP_NONE;
-}
-*/
 static bool check_vmp_reg_index(CPURISCVState *env, uint32_t reg_index)
 {
     /* TODO: RV128 restriction check */
