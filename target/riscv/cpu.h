@@ -304,6 +304,42 @@ struct CPUArchState {
     target_ulong sscratch;
     target_ulong mscratch;
 
+    // <SANCTUM>
+    // ## The core state referenced by various CSRs (registers) introduced by Sanctum is declared here.
+    // ### Enclave virtual base and mask
+    // (per-core) registers
+    // ( defines a virtual region for which enclave page tables are used in
+    //   place of OS-controlled page tables)
+    // (machine-mode non-standard read/write)
+    target_ulong mevbase;
+    target_ulong mevmask;
+     
+    // ### Enclave page table base
+    // (per core) register
+    // ( pointer to a separate page table data structure used to translate enclave
+    //   virtual addresses)
+    // (machine-mode non-standard read/write)
+    target_ulong meatp;
+     
+    // ### DRAM bitmap
+    // (per core) registers (OS and Enclave)
+    // ( white-lists the DRAM regions the core is allowed to access via OS and
+    //   enclave virtual addresses)
+    // (machine-mode non-standard read/write)
+    target_ulong mmrbm;
+    target_ulong memrbm;
+     
+    // ### Protected region base and mask
+    // (per core) registers (OS and Enclave)
+    // ( these are used to prevent address translation into a specific range of
+    //   physical addresses, for example to protect the security monitor from all software)
+    // (machine-mode non-standard read/write)
+    target_ulong mparbase;
+    target_ulong mparmask;
+    target_ulong meparbase;
+    target_ulong meparmask;
+    // </SANCTUM>
+
     /* temporary htif regs */
     uint64_t mfromhost;
     uint64_t mtohost;
