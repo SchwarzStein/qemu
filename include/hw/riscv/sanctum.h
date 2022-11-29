@@ -32,21 +32,34 @@ typedef struct {
 
 enum {
     SANCTUM_MROM,
+    SANCTUM_TEST,
+    SANCTUM_RTC,
     SANCTUM_PUF,
     SANCTUM_ELFLD,
-    SANCTUM_CLINT,
-    SANCTUM_UART0,
-    SANCTUM_PLIC,
+    SANCTUM_FW_CFG,
     SANCTUM_VIRTIO,
-    SANCTUM_DRAM
+    SANCTUM_CLINT,
+    SANCTUM_ACLINT_SSWI,
+    SANCTUM_PCIE_PIO,
+    SANCTUM_UART0,
+    SANCTUM_PLATFORM_BUS,
+    SANCTUM_PLIC,
+    SANCTUM_APLIC_M,
+    SANCTUM_APLIC_S,
+    SANCTUM_VIRT_FLASH,
+    SANCTUM_IMSIC_M,
+    SANCTUM_IMSIC_S,
+    SANCTUM_PCIE_ECAM,
+    SANCTUM_PCIE_MMIO,
+    SANCTUM_DRAM,
 };
 
 enum {
-    UART0_IRQ = 10,
+    SANCTUM_UART0_IRQ = 10,
     SANCTUM_CLOCK_FREQ = 1250000000,
-    VIRTIO_IRQ = 1, /* 1 to 8 */
-    VIRTIO_COUNT = 8,
-    VIRTIO_NDEV = 0x35, /* Arbitrary maximum number of interrupts */
+    SANCTUM_VIRTIO_IRQ = 1, /* 1 to 8 */
+    SANCTUM_VIRTIO_COUNT = 8,
+    SANCTUM_VIRTIO_NDEV = 0x35, /* Arbitrary maximum number of interrupts */
 };
 
 #define SANCTUM_PLIC_HART_CONFIG "MS"

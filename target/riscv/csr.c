@@ -27,6 +27,7 @@
 #include "sysemu/cpu-timers.h"
 #include "qemu/guest-random.h"
 #include "qapi/error.h"
+#include "target/riscv/trng.h"
 
 /* CSR function table public API */
 void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops)
@@ -3055,8 +3056,6 @@ static int read_trng(CPURISCVState *env, int csrno, target_ulong *val)
    *val = trng();
    return 0;
 }
- <SANCTUM>
-
 
 static RISCVException read_tselect(CPURISCVState *env, int csrno,
                                    target_ulong *val)
@@ -3866,15 +3865,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
     [CSR_PMPADDR15] =  { "pmpaddr15", pmp, read_pmpaddr, write_pmpaddr },
 
     /* Sanctum Core Configuration */
-    [CSR_MEVBASE] =             { any,  read_mevbase,     write_mevbase      },
-    [CSR_MEVMASK] =             { any,  read_mevmask,     write_mevmask      },
-    [CSR_MEATP] =               { any,  read_meatp,       write_meatp        },
-    [CSR_MMRBM] =               { any,  read_mmrbm,       write_mmrbm        },
-    [CSR_MEMRBM] =              { any,  read_memrbm,      write_memrbm       },
-    [CSR_MPARBASE] =            { any,  read_mparbase,    write_mparbase     },
-    [CSR_MPARMASK] =            { any,  read_mparmask,    write_mparmask     },
-    [CSR_MEPARBASE] =           { any,  read_meparbase,   write_meparbase    },
-    [CSR_MEPARMASK] =           { any,  read_meparmask,   write_meparmask    },
+    [CSR_MEVBASE] =   {"csr_mevbase",   any,  read_mevbase,     write_mevbase      },
+    [CSR_MEVMASK] =   {"csr_mevmask",   any,  read_mevmask,     write_mevmask      },
+    [CSR_MEATP] =     {"csr_meatp",     any,  read_meatp,       write_meatp        },
+    [CSR_MMRBM] =     {"csr_mmrbm",     any,  read_mmrbm,       write_mmrbm        },
+    [CSR_MEMRBM] =    {"csr_memrbm",    any,  read_memrbm,      write_memrbm       },
+    [CSR_MPARBASE] =  {"csr_mparbase",  any,  read_mparbase,    write_mparbase     },
+    [CSR_MPARMASK] =  {"csr_mparmask",  any,  read_mparmask,    write_mparmask     },
+    [CSR_MEPARBASE] = {"csr_meparbase", any,  read_meparbase,   write_meparbase    },
+    [CSR_MEPARMASK] = {"csr_meparmask", any,  read_meparmask,   write_meparmask    },
 
     /* Debug CSRs */
     [CSR_TSELECT]   =  { "tselect", debug, read_tselect, write_tselect },
@@ -4136,7 +4135,7 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
     [CSR_MHPMCOUNTER31H] = { "mhpmcounter31h", mctr32,  read_hpmcounterh,
                                                        write_mhpmcounterh },
     /* TRNG */
-    [CSR_TRNG] =          { any,   read_trng,                       },
+    [CSR_TRNG] =          {"csr_trng", any,   read_trng,                       },
 
     /* Virtual Memory Protection */
     /*[CSR_MSECCFG]    = { "mseccfg",  epmp, read_mseccfg, write_mseccfg,
