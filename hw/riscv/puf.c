@@ -98,7 +98,7 @@ static void puf_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
     dc->realize = puf_realize;
-    dc->props_ = puf_properties;
+    device_class_set_props(dc, puf_properties);
 }
 
 static const TypeInfo puf_info = {

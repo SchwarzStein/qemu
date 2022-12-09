@@ -79,12 +79,13 @@
 
 static const MemMapEntry  sanctum_memmap[] = {
     [SANCTUM_MROM]         = {     0x1000,    0x11000 },
-    [SANCTUM_TEST]         = {   0x100000,      0x1000},
+    [SANCTUM_TEST]         = {   0x100000,     0x1000 },
     [SANCTUM_RTC]          = {   0x101000,     0x1000 },
     [SANCTUM_PUF]          = {   0x200000,       0x20 },
-    [SANCTUM_ELFLD]        = {  0x1000000,     0x1000 },
-    [SANCTUM_FW_CFG]       = {  0x1001000,       0x18 },
-    [SANCTUM_VIRTIO]       = {  0x1002000,     0x1000 },
+    [SANCTUM_ELFLD]        = {   0x202000,     0x1000 },
+    [SANCTUM_FW_CFG]       = {   0x102000,       0x18 },
+    [SANCTUM_HTIF]         = {   0x204000,     0x1000 },
+    [SANCTUM_VIRTIO]       = {   0x103000,     0x1000 },
     [SANCTUM_CLINT]        = {  0x2000000,    0x10000 },
     [SANCTUM_ACLINT_SSWI]  = {  0x2F00000,     0x4000 },
     [SANCTUM_PCIE_PIO]     = {  0x3000000,      0x100 },
@@ -93,7 +94,7 @@ static const MemMapEntry  sanctum_memmap[] = {
     [SANCTUM_PLIC]         = {  0xc000000,  VIRT_PLIC_SIZE(VIRT_CPUS_MAX*2) },
     [SANCTUM_APLIC_M]      = {  0xc000000,  APLIC_SIZE(VIRT_CPUS_MAX) },
     [SANCTUM_APLIC_S]      = {  0xd000000,  APLIC_SIZE(VIRT_CPUS_MAX) },
-    [SANCTUM_VIRT_FLASH]   	   = { 0x20000000,  0x4000000 },
+    [SANCTUM_VIRT_FLASH]   = { 0x20000000,  0x4000000 },
     [SANCTUM_IMSIC_M]      = { 0x24000000,  VIRT_IMSIC_MAX_SIZE },
     [SANCTUM_IMSIC_S]      = { 0x28000000,  VIRT_IMSIC_MAX_SIZE },
     [SANCTUM_PCIE_ECAM]    = { 0x30000000,  0x10000000 },
@@ -109,6 +110,7 @@ static const MemMapEntry  sanctum_memmap[] = {
 #define VIRT64_HIGH_PCIE_MMIO_SIZE  (16 * GiB)
 
 static MemMapEntry virt_high_pcie_memmap;
+MemoryRegion *_mask_rom;
 
 #define VIRT_FLASH_SECTOR_SIZE (256 * KiB)
 
@@ -892,7 +894,7 @@ static void create_fdt_reset(RISCVVirtState *s, const MemMapEntry *memmap,
 
     test_phandle = (*phandle)++;
     name = g_strdup_printf("/soc/test@%lx",
-        (long)memmap[VIRT_TEST].base);
+        (long)memmap[SANCTUM_TEST].base);
     qemu_fdt_add_subnode(mc->fdt, name);
     {
         static const char * const compat[3] = {
@@ -902,7 +904,7 @@ static void create_fdt_reset(RISCVVirtState *s, const MemMapEntry *memmap,
                                       (char **)&compat, ARRAY_SIZE(compat));
     }
     qemu_fdt_setprop_cells(mc->fdt, name, "reg",
-        0x0, memmap[VIRT_TEST].base, 0x0, memmap[VIRT_TEST].size);
+        0x0, memmap[SANCTUM_TEST].base, 0x0, memmap[SANCTUM_TEST].size);
     qemu_fdt_setprop_cell(mc->fdt, name, "phandle", test_phandle);
     test_phandle = qemu_fdt_get_phandle(mc->fdt, name);
     g_free(name);
@@ -1060,7 +1062,7 @@ static void create_fdt(RISCVVirtState *s, const MemMapEntry *memmap,
 
 update_bootargs:
     if (cmdline && *cmdline) {
-        qemu_fdt_add_subnode(mc->fdt, "/chosen");
+        //qemu_fdt_add_subnode(mc->fdt, "/chosen");
         qemu_fdt_setprop_string(mc->fdt, "/chosen", "bootargs", cmdline);
     }
 }
@@ -1242,7 +1244,7 @@ static void sanctum_virt_machine_done(Notifier *notifier, void *data)
                                      machine_done);
     const MemMapEntry *memmap = sanctum_memmap;
     MachineState *machine = MACHINE(s);
-    target_ulong start_addr = memmap[SANCTUM_DRAM].base;
+//    target_ulong start_addr = memmap[SANCTUM_DRAM].base;
     target_ulong firmware_end_addr, kernel_start_addr;
     uint32_t fdt_load_addr;
     uint64_t kernel_entry;
@@ -1265,18 +1267,21 @@ static void sanctum_virt_machine_done(Notifier *notifier, void *data)
 
     if (riscv_is_32bit(&s->soc[0])) {
         firmware_end_addr = riscv_find_and_load_firmware(machine,
-                                    RISCV32_BIOS_BIN, start_addr, NULL);
+                                    RISCV32_BIOS_BIN, memmap[SANCTUM_MROM].base, NULL);
     } else {
         firmware_end_addr = riscv_find_and_load_firmware(machine,
-                                    RISCV64_BIOS_BIN, start_addr, NULL);
+                                    RISCV64_BIOS_BIN, memmap[SANCTUM_MROM].base, NULL);
     }
 
     if (machine->kernel_filename) {
+        firmware_end_addr = firmware_end_addr - memmap[SANCTUM_MROM].base 
+                            + memmap[SANCTUM_DRAM].base;
+
         kernel_start_addr = riscv_calc_kernel_start_addr(&s->soc[0],
                                                          firmware_end_addr);
 
         kernel_entry = riscv_load_kernel(machine->kernel_filename,
-                                         kernel_start_addr, NULL);
+                                         kernel_start_addr, htif_symbol_callback);
 
         if (machine->initrd_filename) {
             hwaddr start;
@@ -1301,7 +1306,7 @@ static void sanctum_virt_machine_done(Notifier *notifier, void *data)
          * Pflash was supplied, let's overwrite the address we jump to after
          * reset to the base of the flash.
          */
-        start_addr = sanctum_memmap[SANCTUM_VIRT_FLASH].base;
+//        start_addr = sanctum_memmap[SANCTUM_VIRT_FLASH].base;
     }
 
     /*
@@ -1311,15 +1316,16 @@ static void sanctum_virt_machine_done(Notifier *notifier, void *data)
     s->fw_cfg = create_fw_cfg(machine);
     rom_set_fw(s->fw_cfg);
 
+    htif_mm_init(get_system_memory(), _mask_rom, &s->soc[0].harts[0].env, serial_hd(0),0);
     /* Compute the fdt load address in dram */
-    fdt_load_addr = riscv_load_fdt(memmap[SANCTUM_DRAM].base,
-                                   machine->ram_size, machine->fdt);
+    fdt_load_addr = riscv_load_fdt(memmap[SANCTUM_MROM].base,
+                                   memmap[SANCTUM_MROM].size, machine->fdt);
     /* load the reset vector */
-    riscv_setup_rom_reset_vec(machine, &s->soc[0], start_addr,
-                              sanctum_memmap[SANCTUM_MROM].base,
-                              sanctum_memmap[SANCTUM_MROM].size, kernel_entry,
-                              fdt_load_addr, machine->fdt);
-
+//    riscv_setup_rom_reset_vec(machine, &s->soc[0], start_addr,
+//                              sanctum_memmap[SANCTUM_MROM].base,
+//                              sanctum_memmap[SANCTUM_MROM].size, kernel_entry,
+//                              fdt_load_addr, machine->fdt);
+//
     /*
      * Only direct boot kernel is currently supported for KVM VM,
      * So here setup kernel start address and fdt address.
@@ -1329,13 +1335,13 @@ static void sanctum_virt_machine_done(Notifier *notifier, void *data)
         riscv_setup_direct_kernel(kernel_entry, fdt_load_addr);
     }
 }
-
 static void sanctum_virt_machine_init(MachineState *machine)
 {
     const MemMapEntry *memmap = sanctum_memmap;
     RISCVVirtState *s = RISCV_VIRT_MACHINE(machine);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
+    _mask_rom = mask_rom;
     MemoryRegion *elfld_rom = g_new(MemoryRegion, 1);
     char *soc_name;
     DeviceState *mmio_irqchip, *virtio_irqchip, *pcie_irqchip;
@@ -1469,7 +1475,11 @@ static void sanctum_virt_machine_init(MachineState *machine)
         virt_high_pcie_memmap.base =
             ROUND_UP(virt_high_pcie_memmap.base, virt_high_pcie_memmap.size);
     }
-    
+    /* register system main memory (actual RAM) */
+    memory_region_add_subregion(system_memory, memmap[SANCTUM_DRAM].base,
+        machine->ram);
+
+
     /*SANCTUM: CREATE PUF*/
     puf_create(sanctum_memmap[SANCTUM_PUF].base, sanctum_memmap[SANCTUM_PUF].size,
                0xDEADBEEFABADCAFEL);
@@ -1484,23 +1494,16 @@ static void sanctum_virt_machine_init(MachineState *machine)
     rom_add_blob_fixed_as("elfldr.status", oxo, 0x10,
                         memmap[SANCTUM_ELFLD].base, &address_space_memory);
 
-    /*htif TODO: THIS SHOULD BE DONE FOR EACH SOCKET!!!!*/
-    /* for nonelf_base we use elf symbols*/
-    htif_mm_init(system_memory, mask_rom, &s->soc[0].harts[0].env, serial_hd(0),0);
-
-    /*SANCTUM: END*/
-
-    /* register system main memory (actual RAM) */
-    memory_region_add_subregion(system_memory, memmap[SANCTUM_DRAM].base,
-        machine->ram);
-
     /* boot rom */
-    memory_region_init_rom(mask_rom, NULL, "riscv_virt_board.mrom",
+    memory_region_init_rom(mask_rom, NULL, "riscv.sanctum.mrom",
                            memmap[SANCTUM_MROM].size, &error_fatal);
     memory_region_add_subregion(system_memory, memmap[SANCTUM_MROM].base,
                                 mask_rom);
 
-    /* SiFive Test MMIO device */
+
+    /*SANCTUM: END*/
+
+        /* SiFive Test MMIO device */
     sifive_test_create(memmap[SANCTUM_TEST].base);
 
     /* VirtIO MMIO devices */
@@ -1550,6 +1553,9 @@ static void sanctum_virt_machine_init(MachineState *machine)
     /*SANCTUM CHANGES end*/
     s->machine_done.notify = sanctum_virt_machine_done;
     qemu_add_machine_init_done_notifier(&s->machine_done);
+    /* for nonelf_base we use elf symbols*/
+    /*htif TODO: THIS SHOULD BE DONE FOR EACH SOCKET!!!!*/
+
 }
 
 static void virt_machine_instance_init(Object *obj)

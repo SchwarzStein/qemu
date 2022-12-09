@@ -188,8 +188,9 @@ static uint64_t htif_mm_read(void *opaque, hwaddr addr, unsigned size)
     } else if (addr == FROMHOST_OFFSET2) {
         return (htifstate->env->mfromhost >> 32) & 0xFFFFFFFF;
     } else {
-        qemu_log("Invalid htif read: address %016" PRIx64 "\n",
-            (uint64_t)addr);
+        qemu_log("Invalid htif read: address %016" PRIx64 "\n",(uint64_t)addr);
+        qemu_log("htif addresses are tohost: %lx %lx fromhost: %lx %lx\n",TOHOST_OFFSET1,
+           TOHOST_OFFSET2,FROMHOST_OFFSET1,FROMHOST_OFFSET2 );
         return 0;
     }
 }

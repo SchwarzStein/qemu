@@ -3681,11 +3681,10 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
     [CSR_MCONFIGPTR]  = { "mconfigptr", any,   read_zero,
                                         .min_priv_ver = PRIV_VERSION_1_12_0 },
     /* Machine Trap Setup */
-    [CSR_MSTATUS]     = { "mstatus",    any,   read_mstatus,     write_mstatus, NULL,
-                                               read_mstatus_i128                   },
+    [CSR_MSTATUS]     = { "mstatus",    any,   read_mstatus,     write_mstatus, NULL, read_mstatus_i128                   },
     [CSR_MISA]        = { "misa",       any,   read_misa,        write_misa, NULL,
                                                read_misa_i128                      },
-    [CSR_MIDELEG]     = { "mideleg",    any,   NULL,    NULL,    rmw_mideleg       },
+    [CSR_MIDELEG]     = { "mideleg",    any,   read_medeleg,    write_medeleg,    rmw_mideleg       },
     [CSR_MEDELEG]     = { "medeleg",    any,   read_medeleg,     write_medeleg     },
     [CSR_MIE]         = { "mie",        any,   NULL,    NULL,    rmw_mie           },
     [CSR_MTVEC]       = { "mtvec",      any,   read_mtvec,       write_mtvec       },
